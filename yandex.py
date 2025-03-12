@@ -3,7 +3,7 @@ import requests
 
 # Yandex credentials
 YANDEX_EMAIL = "rylecohner@yandex.com"
-YANDEX_PASSWORD = "your_password_here"
+YANDEX_PASSWORD = "kirbyisntscared321"
 
 def generate_email():
     """Generate a Yandex email alias with a random number."""
