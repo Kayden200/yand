@@ -61,7 +61,7 @@ if __name__ == "__main__":
         print("Generated Email:", generate_unique_email())
     elif choice == "2":
         email_address = "rylecohner@yandex.com"  # Replace with your Yandex email
-        email_password = "kirbyisntscared321"  # Replace with your password
+        email_password = "ucjmeecgkhivnhcf"  # Replace with your password
         print("Fetching OTP...")
         otp = get_yandex_otp(email_address, email_password)
         print("OTP:", otp)
