@@ -1,55 +1,78 @@
 import random
-import requests
+import imaplib
+import email
+import re
+import os
 
-# Yandex credentials
-YANDEX_EMAIL = "rylecohner@yandex.com"
-YANDEX_PASSWORD = "kirbyisntscared321"
+# Set Yandex credentials (Use environment variables for security)
+YANDEX_EMAIL = os.getenv("YANDEX_EMAIL", "rylecohner@yandex.com")
+YANDEX_PASSWORD = os.getenv("YANDEX_PASSWORD", "kirbyisntscared321")
 
-def generate_email():
-    """Generate a Yandex email alias with a random number."""
-    random_number = random.randint(100000, 999999)
-    email_alias = f"rylecohner+{random_number}@yandex.com"
-    print(f"Generated Email: {email_alias}")
-    return email_alias
+used_numbers = set()
+min_number = 500
 
-def check_otp(email):
-    """Check for OTP messages in Yandex Mail."""
-    session = requests.Session()
-    
-    # Replace with your Yandex Mail API authentication logic
-    login_url = "https://passport.yandex.com/auth"
-    inbox_url = "https://mail.yandex.com/api/v2.0/json/messages"
-    
-    payload = {
-        "login": YANDEX_EMAIL,
-        "passwd": YANDEX_PASSWORD
-    }
+# Generate Unique Yandex Email
+def generate_unique_email():
+    while True:
+        random_number = random.randint(min_number, 1000000)
+        if random_number not in used_numbers:
+            used_numbers.add(random_number)
+            return f"rylecohner+{random_number}@yandex.com"
 
-    # Log in to Yandex
-    response = session.post(login_url, data=payload)
-    if response.status_code != 200:
-        print("Login failed!")
-        return None
+# Fetch OTP from Yandex Email
+def get_yandex_otp():
+    try:
+        mail = imaplib.IMAP4_SSL("imap.yandex.com")  # Yandex IMAP server
+        mail.login(YANDEX_EMAIL, YANDEX_PASSWORD)  # Login to Yandex account
+        mail.select("INBOX")  # Select inbox
 
-    # Fetch emails
-    response = session.get(inbox_url)
-    if response.status_code == 200:
-        messages = response.json().get("messages", [])
-        for msg in messages:
-            if email in msg["to"]:
-                print(f"OTP Message: {msg['subject']}")
-                return msg["subject"]
-    else:
-        print("Failed to fetch emails.")
+        # Search for unread emails
+        result, data = mail.search(None, "UNSEEN")
+        email_ids = data[0].split()
 
-    return None
+        for e_id in email_ids[::-1]:  # Check newest unread emails first
+            result, msg_data = mail.fetch(e_id, "(RFC822)")
+            raw_email = msg_data[0][1]
+            msg = email.message_from_bytes(raw_email)
 
-# Run the script in Termux
+            # Extract email content
+            body = ""
+            if msg.is_multipart():
+                for part in msg.walk():
+                    if part.get_content_type() == "text/plain":
+                        body = part.get_payload(decode=True).decode("utf-8")
+                        break
+            else:
+                body = msg.get_payload(decode=True).decode("utf-8")
+
+            # Extract OTP (Modify regex if needed)
+            otp_match = re.search(r"\b\d{4,6}\b", body)
+            if otp_match:
+                return otp_match.group(0)  # Return the OTP
+
+        return "No OTP found in unread emails."
+
+    except Exception as e:
+        return f"Error fetching OTP: {e}"
+
+# CLI Menu
+def main():
+    while True:
+        print("\nOptions:")
+        print("1. Generate a unique Yandex email")
+        print("2. Check OTP from Yandex inbox")
+        print("3. Exit")
+
+        choice = input("Enter choice (1-3): ")
+        
+        if choice == "1":
+            print("Generated Email:", generate_unique_email())
+        elif choice == "2":
+            print("Latest OTP:", get_yandex_otp())
+        elif choice == "3":
+            break
+        else:
+            print("Invalid choice. Try again.")
+
 if __name__ == "__main__":
-    email = generate_email()
-    otp = check_otp(email)
-
-    if otp:
-        print(f"OTP Found: {otp}")
-    else:
-        print("No OTP found.")
+    main()
