@@ -9,6 +9,11 @@ app = Flask(__name__)
 used_numbers = set()
 min_number = 500
 
+# Home route (prevents 404 errors)
+@app.route('/')
+def home():
+    return "Welcome to the Yandex Email API! Available endpoints: /generate_email, /check_otp"
+
 # Generate unique Yandex email
 def generate_unique_email():
     while True:
