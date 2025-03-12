@@ -1,54 +1,55 @@
-from flask import Flask, jsonify
-import imaplib
-import email
-import re
+import random
+import requests
 
-app = Flask(__name__)
-
-# Yandex Mail Credentials (Use Environment Variables in Production)
+# Yandex credentials
 YANDEX_EMAIL = "rylecohner@yandex.com"
-YANDEX_PASSWORD = "kirbyisntscared321"  # ⚠️ Use a secure method to store passwords
+YANDEX_PASSWORD = "your_password_here"
 
-def get_latest_otp():
-    """Connect to Yandex Mail and retrieve the latest OTP from inbox."""
-    try:
-        # Connect to Yandex IMAP Server
-        mail = imaplib.IMAP4_SSL("imap.yandex.com")
-        mail.login(YANDEX_EMAIL, YANDEX_PASSWORD)
-        mail.select("inbox")
+def generate_email():
+    """Generate a Yandex email alias with a random number."""
+    random_number = random.randint(100000, 999999)
+    email_alias = f"rylecohner+{random_number}@yandex.com"
+    print(f"Generated Email: {email_alias}")
+    return email_alias
 
-        # Search for Unread Emails
-        status, messages = mail.search(None, 'UNSEEN')  # Get unread emails
-        message_ids = messages[0].split()
+def check_otp(email):
+    """Check for OTP messages in Yandex Mail."""
+    session = requests.Session()
+    
+    # Replace with your Yandex Mail API authentication logic
+    login_url = "https://passport.yandex.com/auth"
+    inbox_url = "https://mail.yandex.com/api/v2.0/json/messages"
+    
+    payload = {
+        "login": YANDEX_EMAIL,
+        "passwd": YANDEX_PASSWORD
+    }
 
-        if not message_ids:
-            return {"error": "No unread OTP emails found"}
+    # Log in to Yandex
+    response = session.post(login_url, data=payload)
+    if response.status_code != 200:
+        print("Login failed!")
+        return None
 
-        # Fetch the latest email
-        latest_email_id = message_ids[-1]
-        status, msg_data = mail.fetch(latest_email_id, "(RFC822)")
+    # Fetch emails
+    response = session.get(inbox_url)
+    if response.status_code == 200:
+        messages = response.json().get("messages", [])
+        for msg in messages:
+            if email in msg["to"]:
+                print(f"OTP Message: {msg['subject']}")
+                return msg["subject"]
+    else:
+        print("Failed to fetch emails.")
 
-        raw_email = msg_data[0][1]
-        msg = email.message_from_bytes(raw_email)
+    return None
 
-        # Extract OTP using Regex (Customize if needed)
-        otp_match = re.search(r'\b\d{6}\b', msg.get_payload(decode=True).decode())
-        otp_code = otp_match.group() if otp_match else "OTP not found"
+# Run the script in Termux
+if __name__ == "__main__":
+    email = generate_email()
+    otp = check_otp(email)
 
-        mail.logout()
-        return {"otp": otp_code}
-
-    except Exception as e:
-        return {"error": str(e)}
-
-@app.route('/')
-def home():
-    return "Welcome to the Yandex Email API! Available endpoints: /get_otp"
-
-@app.route('/get_otp', methods=['GET'])
-def get_otp():
-    """Retrieve the latest OTP from Yandex Mail inbox."""
-    return jsonify(get_latest_otp())
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=True)
+    if otp:
+        print(f"OTP Found: {otp}")
+    else:
+        print("No OTP found.")
