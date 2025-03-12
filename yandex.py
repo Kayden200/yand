@@ -2,16 +2,12 @@ import random
 import imaplib
 import email
 import re
-import os
 
-# Set Yandex credentials (Use environment variables for security)
-YANDEX_EMAIL = os.getenv("YANDEX_EMAIL", "rylecohner@yandex.com")
-YANDEX_PASSWORD = os.getenv("YANDEX_PASSWORD", "kirbyisntscared321")
-
+# Set of used numbers to avoid duplicates
 used_numbers = set()
 min_number = 500
 
-# Generate Unique Yandex Email
+# Generate a unique Yandex email
 def generate_unique_email():
     while True:
         random_number = random.randint(min_number, 1000000)
@@ -20,10 +16,10 @@ def generate_unique_email():
             return f"rylecohner+{random_number}@yandex.com"
 
 # Fetch OTP from Yandex Email
-def get_yandex_otp():
+def get_yandex_otp(email_address, email_password):
     try:
         mail = imaplib.IMAP4_SSL("imap.yandex.com")  # Yandex IMAP server
-        mail.login(YANDEX_EMAIL, YANDEX_PASSWORD)  # Login to Yandex account
+        mail.login(email_address, email_password)  # Login to Yandex account
         mail.select("INBOX")  # Select inbox
 
         # Search for unread emails
@@ -45,7 +41,7 @@ def get_yandex_otp():
             else:
                 body = msg.get_payload(decode=True).decode("utf-8")
 
-            # Extract OTP (Modify regex if needed)
+            # Extract OTP from the email body
             otp_match = re.search(r"\b\d{4,6}\b", body)
             if otp_match:
                 return otp_match.group(0)  # Return the OTP
@@ -55,24 +51,19 @@ def get_yandex_otp():
     except Exception as e:
         return f"Error fetching OTP: {e}"
 
-# CLI Menu
-def main():
-    while True:
-        print("\nOptions:")
-        print("1. Generate a unique Yandex email")
-        print("2. Check OTP from Yandex inbox")
-        print("3. Exit")
-
-        choice = input("Enter choice (1-3): ")
-        
-        if choice == "1":
-            print("Generated Email:", generate_unique_email())
-        elif choice == "2":
-            print("Latest OTP:", get_yandex_otp())
-        elif choice == "3":
-            break
-        else:
-            print("Invalid choice. Try again.")
-
+# Main execution in Termux
 if __name__ == "__main__":
-    main()
+    print("1. Generate a unique email")
+    print("2. Check OTP from Yandex inbox")
+    choice = input("Choose an option (1/2): ")
+
+    if choice == "1":
+        print("Generated Email:", generate_unique_email())
+    elif choice == "2":
+        email_address = "rylecohner@yandex.com"  # Replace with your Yandex email
+        email_password = "kirbyisntscared321"  # Replace with your password
+        print("Fetching OTP...")
+        otp = get_yandex_otp(email_address, email_password)
+        print("OTP:", otp)
+    else:
+        print("Invalid choice. Exiting.")
