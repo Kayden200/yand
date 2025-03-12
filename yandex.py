@@ -1,47 +1,54 @@
 from flask import Flask, jsonify
-import random
-import pyotp
+import imaplib
+import email
+import re
 
 app = Flask(__name__)
 
-# Store generated emails and OTPs
-generated_emails = {}
-used_numbers = set()
-min_number = 500
+# Yandex Mail Credentials (Use Environment Variables in Production)
+YANDEX_EMAIL = "rylecohner@yandex.com"
+YANDEX_PASSWORD = "kirbyisntscared321"  # ⚠️ Use a secure method to store passwords
 
-def generate_unique_number():
-    """Generate a unique random number for email alias."""
-    while True:
-        random_number = random.randint(min_number, 1000000)
-        if random_number not in used_numbers:
-            used_numbers.add(random_number)
-            return random_number
+def get_latest_otp():
+    """Connect to Yandex Mail and retrieve the latest OTP from inbox."""
+    try:
+        # Connect to Yandex IMAP Server
+        mail = imaplib.IMAP4_SSL("imap.yandex.com")
+        mail.login(YANDEX_EMAIL, YANDEX_PASSWORD)
+        mail.select("inbox")
+
+        # Search for Unread Emails
+        status, messages = mail.search(None, 'UNSEEN')  # Get unread emails
+        message_ids = messages[0].split()
+
+        if not message_ids:
+            return {"error": "No unread OTP emails found"}
+
+        # Fetch the latest email
+        latest_email_id = message_ids[-1]
+        status, msg_data = mail.fetch(latest_email_id, "(RFC822)")
+
+        raw_email = msg_data[0][1]
+        msg = email.message_from_bytes(raw_email)
+
+        # Extract OTP using Regex (Customize if needed)
+        otp_match = re.search(r'\b\d{6}\b', msg.get_payload(decode=True).decode())
+        otp_code = otp_match.group() if otp_match else "OTP not found"
+
+        mail.logout()
+        return {"otp": otp_code}
+
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.route('/')
 def home():
-    return "Welcome to the Yandex Email API! Available endpoints: /generate_email, /check_otp"
+    return "Welcome to the Yandex Email API! Available endpoints: /get_otp"
 
-@app.route('/generate_email', methods=['GET'])
-def generate_email():
-    """Generate a unique Yandex alias email."""
-    email_counter = generate_unique_number()
-    email = f"rylecohner+{email_counter}@yandex.com"
-    
-    # Generate and store OTP for this email
-    totp = pyotp.TOTP(pyotp.random_base32())
-    otp = totp.now()
-    generated_emails[email] = otp
-
-    return jsonify({"generated_email": email, "otp": otp})
-
-@app.route('/check_otp/<email>', methods=['GET'])
-def check_otp(email):
-    """Check if an OTP exists for a generated email."""
-    otp = generated_emails.get(email)
-    if otp:
-        return jsonify({"email": email, "otp": otp})
-    else:
-        return jsonify({"error": "OTP not found for this email"}), 404
+@app.route('/get_otp', methods=['GET'])
+def get_otp():
+    """Retrieve the latest OTP from Yandex Mail inbox."""
+    return jsonify(get_latest_otp())
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=8080, debug=True)
